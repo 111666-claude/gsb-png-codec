@@ -5,7 +5,7 @@ import struct
 import sys
 import zlib
 
-from .png import SIGNATURE, PngError, decode, encode, split_chunks
+from .png import CHANNELS, SIGNATURE, PngError, decode, encode, split_chunks
 
 
 def _paeth(a, b, c):
@@ -79,7 +79,7 @@ def rows_of(width, height):
 
 
 def sample(name):
-    """构造样本。缺陷：样本本身是规范的，但现在的解码器读不了。"""
+    """构造样本（按规范打包，解码器必须能读回）。"""
     if name == "paeth":
         return reference_png(4, 4, rows_of(4, 4), [4] * 4)
     if name == "mixed":
@@ -109,7 +109,7 @@ def check_crc(data):
 def file_info(data):
     width = height = depth = color_type = 0
     idat_chunks = 0
-    for kind, payload in split_chunks(data):
+    for kind, payload in split_chunks(data, verify_crc=False):
         if kind == b"IHDR":
             width, height, depth, color_type = struct.unpack(">IIBB", payload[:10])
         elif kind == b"IDAT":
@@ -148,7 +148,7 @@ def main(argv=None):
         elif args.pixels:
             with open(args.pixels, "rb") as handle:
                 result = decode(handle.read())
-            stride = result["width"] * (1 if result["color_type"] == 0 else 3)
+            stride = result["width"] * CHANNELS[result["color_type"]]
             for row in range(result["height"]):
                 line = result["pixels"][row * stride:(row + 1) * stride]
                 print("row=%d hex=%s" % (row, line.hex()))
